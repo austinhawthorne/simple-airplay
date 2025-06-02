@@ -11,6 +11,21 @@ SERVICE_NAME    = "Test AirPlay._airplay._tcp.local."
 PORT            = 7000
 ANN_INTERVAL    = 5  # seconds
 
+def get_lan_address():
+    """
+    Create a dummy UDP socket to a public IP, read out the local socket's address,
+    then close the socket. This reliably finds the machine’s LAN IP on most systems.
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = "127.0.0.1"
+    finally:
+        s.close()
+    return ip
+
 def announcement_loop(zeroconf, info, announcements, stop_event):
     while not stop_event.is_set():
         time.sleep(ANN_INTERVAL)
@@ -74,12 +89,16 @@ def draw_chart(stdscr, data_queue, announcements, stop_event):
         time.sleep(1)
 
 def main():
+    # Find the LAN IP so that we advertise the correct address
+    lan_ip = get_lan_address()
+    print(f"[INFO] Advertising as {lan_ip}:{PORT}")
+
     zeroconf = Zeroconf()
     desc = {'txtvers': '1', 'device': 'Test AirPlay'}
     info = ServiceInfo(
         SERVICE_TYPE,
         SERVICE_NAME,
-        addresses=[socket.inet_aton("127.0.0.1")],
+        addresses=[socket.inet_aton(lan_ip)],  # use LAN IP instead of 127.0.0.1
         port=PORT,
         properties=desc
     )
